@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WhatsApp BOT Control Panel</title>
+    <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .status-box { padding: 15px; margin: 10px 0; border-radius: 5px; }
+        .connected { background-color: #d4edda; color: #155724; }
+        .disconnected { background-color: #f8d7da; color: #721c24; }
+        #qrcode { margin: 20px 0; }
+        button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>WhatsApp BOT Control Panel</h1>
+    
+    <div id="statusBox" class="status-box">
+        <h2>Status: <span id="statusText">Checking...</span></h2>
+        <p>Nomor yang terhubung: <span id="connectedNumber">-</span></p>
+    </div>
+
+    <div id="qrcode"></div>
+
+    <div>
+        <button id="startBtn">Start BOT</button>
+        <button id="stopBtn">Stop BOT</button>
+        <button id="refreshBtn">Refresh Status</button>
+    </div>
+
+    <script>
+        const statusBox = document.getElementById('statusBox');
+        const statusText = document.getElementById('statusText');
+        const connectedNumber = document.getElementById('connectedNumber');
+        const qrcodeDiv = document.getElementById('qrcode');
+        const startBtn = document.getElementById('startBtn');
+        const stopBtn = document.getElementById('stopBtn');
+        const refreshBtn = document.getElementById('refreshBtn');
+
+        let currentQR = null;
+
+        async function checkStatus() {
+            try {
+                const response = await fetch('/whatsapp/status');
+                const data = await response.json();
+                
+                if (data.isReady) {
+                    statusBox.className = 'status-box connected';
+                    statusText.textContent = 'Connected';
+                    connectedNumber.textContent = data.connectedNumber || '-';
+                    qrcodeDiv.innerHTML = '';
+                    currentQR = null;
+                } else {
+                    statusBox.className = 'status-box disconnected';
+                    statusText.textContent = 'Disconnected';
+                    connectedNumber.textContent = '-';
+                    
+                    if (data.qrCode && data.qrCode !== currentQR) {
+                        qrcodeDiv.innerHTML = '';
+                        QRCode.toCanvas(data.qrCode, { width: 300 }, (err, canvas) => {
+                            if (err) throw err;
+                            qrcodeDiv.appendChild(canvas);
+                        });
+                        currentQR = data.qrCode;
+                    }
+                }
+            } catch (error) {
+                console.error('Error checking status:', error);
+                statusBox.className = 'status-box disconnected';
+                statusText.textContent = 'Error checking status';
+            }
+        }
+
+        async function startBot() {
+            try {
+                const response = await fetch('/whatsapp/start', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('BOT started successfully');
+                    checkStatus();
+                } else {
+                    alert('Error starting BOT: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error starting BOT:', error);
+                alert('Error starting BOT');
+            }
+        }
+
+        async function stopBot() {
+            try {
+                const response = await fetch('/whatsapp/stop', { method: 'POST' });
+                const data = await response.json();
+                if (data.success) {
+                    alert('BOT stopped successfully');
+                    checkStatus();
+                } else {
+                    alert('Error stopping BOT: ' + data.error);
+                }
+            } catch (error) {
+                console.error('Error stopping BOT:', error);
+                alert('Error stopping BOT');
+            }
+        }
+
+        startBtn.addEventListener('click', startBot);
+        stopBtn.addEventListener('click', stopBot);
+        refreshBtn.addEventListener('click', checkStatus);
+
+        // Check status every 3 seconds
+        setInterval(checkStatus, 3000);
+        checkStatus();
+    </script>
+</body>
+</html>
